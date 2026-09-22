@@ -9,7 +9,7 @@ MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 MODEL_PATH = os.path.join(MODEL_DIR, "note_classifier.pkl")
 LABEL_ENCODER_PATH = os.path.join(MODEL_DIR, "label_encoder.pkl")
 
-DEFAULT_CATEGORIES = ["personal", "work", "health", "shopping", "idea", "other"]
+DEFAULT_CATEGORIES = ["officenote", "repair", "misl", "sebabd", "pacific", "toner"]
 
 class NoteClassifier:
     def __init__(self):

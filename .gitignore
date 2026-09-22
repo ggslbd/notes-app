@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+*.so
+*.dll
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded audio
+uploads/
+
+# Trained model
+models/
+
+# OS
+.DS_Store
+Thumbs.db

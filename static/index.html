@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #1a1a1a;
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 24px; margin-bottom: 12px; text-align: center; }
+        h2 { font-size: 16px; margin: 14px 0 6px; color: #555; }
+        .top-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .top-bar .trained-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            background: #34c759;
+            color: #fff;
+        }
+        .top-bar .trained-badge.untrained {
+            background: #ff9f0a;
+        }
+        .note-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .note-card .content {
+            font-size: 15px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .note-card .meta {
+            font-size: 11px;
+            color: #888;
+            margin-top: 6px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .note-card .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff4d4d;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .note-card .delete-btn:hover { background: #e60000; }
+        .category-badge {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e8e8ea;
+            color: #333;
+        }
+        .reminder-badge {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #ff3b30;
+            color: #fff;
+        }
+        textarea {
+            width: 100%;
+            min-height: 110px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            background: #fff;
+        }
+        textarea:focus { outline: none; border-color: #007aff; }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #007aff;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 11px 18px;
+            font-size: 15px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 90px;
+        }
+        button:hover { background: #005ecb; }
+        button.secondary { background: #8e8e93; }
+        button.secondary:hover { background: #636366; }
+        button.green { background: #34c759; }
+        button.green:hover { background: #28a745; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .audio-row {
+            display: none;
+            margin-top: 10px;
+            align-items: center;
+            gap: 8px;
+        }
+        .audio-row.show { display: flex; }
+        .audio-row input[type="file"] { flex: 1; font-size: 13px; }
+        .record-btn {
+            background: #34c759;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .record-btn.recording {
+            background: #ff3b30;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(255,59,48,0); }
+        }
+        #note-list { margin-top: 6px; }
+        .empty { text-align: center; color: #999; padding: 20px 0; font-size: 14px; }
+        .section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .backup-bar {
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .backup-bar button { background: #34c759; font-size: 13px; padding: 8px; }
+        .toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a1a;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 18px;
+            font-size: 13px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show { opacity: 1; }
+        .train-panel { display: none; }
+        .train-panel.show { display: block; }
+        .train-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .train-row > div {
+            flex: 1;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 4px 0;
+        }
+        .train-row select {
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+        }
+        .reminder-list .reminder-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .reminder-list .reminder-item:last-child { border-bottom: none; }
+        .reminder-list .reminder-date {
+            font-size: 11px;
+            color: #ff3b30;
+            font-weight: 600;
+        }
+        .toggle-train {
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: #ff9f0a;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 Notes</h1>
+
+    <div class="top-bar">
+        <button class="toggle-train" id="toggle-train-btn" onclick="toggleTrain()">✏️ Label & Train</button>
+        <span id="trained-badge" class="trained-badge untrained">Not trained yet</span>
+    </div>
+
+    <textarea id="note-input" placeholder="Type your note here… (mention 'remind', 'todo', 'don't forget' for reminder)"></textarea>
+
+    <div class="audio-row" id="audio-row">
+        <button class="record-btn" id="record-btn" title="Record voice note">🎤</button>
+        <span id="record-timer"></span>
+        <input type="file" id="audio-file" accept="audio/*">
+    </div>
+
+    <div class="btn-row">
+        <button id="save-btn">Save Note</button>
+        <button class="secondary" id="clear-btn">Clear</button>
+    </div>
+
+    <!-- Training panel -->
+    <div class="section train-panel" id="train-panel">
+        <h2>Label Notes for Training</h2>
+        <small style="color:#888; font-size:12px;">Select a category for each note, then hit Train. The model learns your categories and auto-classifies new notes.</small>
+        <div id="label-list" style="margin-top:8px;"></div>
+        <div class="btn-row">
+            <button class="green" id="train-btn">Train Model</button>
+            <button class="secondary" id="clear-labels-btn">Clear Labels</button>
+        </div>
+        <div style="margin-top:12px; font-size:13px; color:#555;">
+            <strong>Or add training examples directly:</strong>
+            <div id="add-examples" style="margin-top:6px;"></div>
+            <button class="secondary" style="margin-top:6px; font-size:13px; padding:6px 10px;" onclick="addExampleRow()">+ Add example</button>
+        </div>
+    </div>
+
+    <div id="note-list"></div>
+
+    <div class="section" id="reminders-section" style="display:none;">
+        <h2>🔔 Reminders</h2>
+        <div id="reminder-list" class="reminder-list"></div>
+    </div>
+
+    <div class="section backup-bar">
+        <small style="color:#666;display:block;margin-bottom:4px;">Backup / Export</small>
+        <button id="backup-btn">Download Backup</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API = '';
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recording = false;
+        let recordStartTime = 0;
+        let noteLabels = {};   // { noteId: category }
+
+        const noteInput = document.getElementById('note-input');
+        const saveBtn = document.getElementById('save-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const noteList = document.getElementById('note-list');
+        const backupBtn = document.getElementById('backup-btn');
+        const audioRow = document.getElementById('audio-row');
+        const audioFile = document.getElementById('audio-file');
+        const recordBtn = document.getElementById('record-btn');
+        const recordTimer = document.getElementById('record-timer');
+        const toast = document.getElementById('toast');
+        const toggleTrainBtn = document.getElementById('toggle-train-btn');
+        const trainPanel = document.getElementById('train-panel');
+        const labelList = document.getElementById('label-list');
+        const trainBtn = document.getElementById('train-btn');
+        const clearLabelsBtn = document.getElementById('clear-labels-btn');
+        const addExamplesDiv = document.getElementById('add-examples');
+        const trainedBadge = document.getElementById('trained-badge');
+        const remindersSection = document.getElementById('reminders-section');
+        const reminderList = document.getElementById('reminder-list');
+
+        let cachedCategories = ['personal', 'work', 'health', 'shopping', 'idea', 'other'];
+
+        async function fetchCategories() {
+            const res = await fetch(`${API}/api/categories`);
+            const data = await res.json();
+            cachedCategories = data.categories;
+            return cachedCategories;
+        }
+
+        function addExampleRow() {
+            const row = document.createElement('div');
+            row.className = 'train-row';
+            row.innerHTML = `
+                <input type="text" id="ex-text" placeholder="Note text" style="flex:1;padding:8px 10px;border:2px solid #ddd;border-radius:8px;font-size:14px;">
+                <select id="ex-label" style="padding:8px;border:2px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                    ${cachedCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+                <button class="secondary" style="padding:8px 10px;font-size:13px;" onclick="submitExample()">Add</button>
+            `;
+            addExamplesDiv.appendChild(row);
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        async function loadNotes() {
+            const res = await fetch(`${API}/api/notes`);
+            const notes = await res.json();
+            noteList.innerHTML = '';
+            if (!notes.length) {
+                noteList.innerHTML = '<div class="empty">No notes yet. Write or record one above.</div>';
+                remindersSection.style.display = 'none';
+                return;
+            }
+            let hasReminders = false;
+            notes.forEach(n => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                const date = new Date(n.created_at);
+                let meta = `<span>${date.toLocaleString()}</span>`;
+                if (n.category) meta += `<span class="category-badge">${escapeHtml(n.category)}</span>`;
+                if (n.is_reminder) {
+                    meta += `<span class="reminder-badge">🔔 Reminder</span>`;
+                    if (n.reminder_date) meta += ` <span style="font-size:11px;color:#ff3b30;">${n.reminder_date}</span>`;
+                    hasReminders = true;
+                }
+                if (n.audio_path) meta += ` 🎤`;
+                card.innerHTML = `
+                    <button class="delete-btn" data-id="${n.id}">Delete</button>
+                    <div class="content">${escapeHtml(n.content)}</div>
+                    <div class="meta">${meta}</div>
+                `;
+                card.querySelector('.delete-btn').addEventListener('click', () => deleteNote(n.id));
+                noteList.appendChild(card);
+            });
+            remindersSection.style.display = hasReminders ? 'block' : 'none';
+            if (hasReminders) await loadReminders();
+        }
+
+        async function loadReminders() {
+            const res = await fetch(`${API}/api/reminders`);
+            const reminders = await res.json();
+            reminderList.innerHTML = '';
+            if (!reminders.length) {
+                reminderList.innerHTML = '<div style="color:#999;font-size:13px;padding:8px 0;">No pending reminders.</div>';
+                return;
+            }
+            reminders.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'reminder-item';
+                const date = r.reminder_date ? new Date(r.reminder_date).toLocaleString() : 'No date set';
+                div.innerHTML = `
+                    <div>${escapeHtml(r.content)}</div>
+                    <div class="reminder-date">🔔 ${date}${r.reminder_time ? ' at ' + r.reminder_time : ''}</div>
+                `;
+                reminderList.appendChild(div);
+            });
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        async function saveNote() {
+            const content = noteInput.value.trim();
+            if (!content && !audioFile.files.length) {
+                showToast('Write something or record audio');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('content', content);
+            if (audioFile.files.length) formData.append('audio', audioFile.files[0]);
+            const res = await fetch(`${API}/api/notes`, { method: 'POST', body: formData });
+            if (res.ok) {
+                noteInput.value = '';
+                audioFile.value = '';
+                audioRow.classList.remove('show');
+                showToast('Note saved');
+                noteLabels = {};
+                loadNotes();
+                updateTrainPanel();
+            } else {
+                showToast('Failed to save');
+            }
+        }
+
+        async function deleteNote(id) {
+            if (!confirm('Delete this note?')) return;
+            await fetch(`${API}/api/notes/${id}`, { method: 'DELETE' });
+            delete noteLabels[id];
+            showToast('Deleted');
+            loadNotes();
+            updateTrainPanel();
+        }
+
+        async function downloadBackup() {
+            const res = await fetch(`${API}/api/backup`);
+            const data = await res.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `notes-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Backup downloaded');
+        }
+
+        // ── Training ────────────────────────────────────────────────────────────
+
+        async function toggleTrain() {
+            const show = trainPanel.classList.toggle('show');
+            toggleTrainBtn.textContent = show ? '🔒 Hide Trainer' : '✏️ Label & Train';
+            if (show) {
+                await fetchCategories();
+                updateTrainPanel();
+            }
+        }
+
+        async function updateTrainPanel() {
+            const res = await fetch(`${API}/api/notes`);
+            const notes = await res.json();
+            const labeled = Object.keys(noteLabels).length;
+
+            if (notes.length === 0) {
+                labelList.innerHTML = '<div style="color:#999;font-size:13px;">No notes to label yet.</div>';
+                return;
+            }
+
+            // Refresh select elements in add-examples section
+            document.querySelectorAll('#add-examples select#ex-label').forEach(sel => {
+                const current = sel.value;
+                sel.innerHTML = cachedCategories.map(c => `<option value="${c}" ${c===current?'selected':''}>${c}</option>`).join('');
+            });
+
+            labelList.innerHTML = '';
+            notes.slice(0, 20).forEach(n => {
+                const currentCat = noteLabels[n.id] || '';
+                const row = document.createElement('div');
+                row.className = 'train-row';
+                row.innerHTML = `
+                    <div style="flex:1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 0;">${escapeHtml(n.content)}</div>
+                    <select data-id="${n.id}" onchange="noteLabels[this.dataset.id]=this.value" style="padding:8px;border:2px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                        <option value="">—</option>
+                        ${cachedCategories.map(c => `<option value="${c}" ${c===currentCat?'selected':''}>${c}</option>`).join('')}
+                    </select>
+                `;
+                labelList.appendChild(row);
+            });
+            if (notes.length > 20) {
+                labelList.innerHTML += `<div style="font-size:12px;color:#888;padding:4px 0;">…and ${notes.length-20} more (first 20 shown)</div>`;
+            }
+
+            const trained = await isTrained();
+            trainedBadge.textContent = trained ? '✅ Model trained' : 'Not trained yet';
+            trainedBadge.className = 'trained-badge ' + (trained ? '' : 'untrained');
+        }
+
+        async function isTrained() {
+            const res = await fetch(`${API}/api/categories`);
+            const data = await res.json();
+            return data.trained;
+        }
+
+        async function submitExample() {
+            const textEl = document.getElementById('ex-text');
+            const labelEl = document.getElementById('ex-label');
+            const text = textEl.value.trim();
+            const label = labelEl.value;
+            if (!text || !label) { showToast('Fill in both fields'); return; }
+            textEl.value = '';
+            const res = await fetch(`${API}/api/train`, {
+                method: 'POST',
+                body: new URLSearchParams({ texts: JSON.stringify([text]), labels: JSON.stringify([label]) }),
+            });
+            if (res.ok) {
+                showToast('Example added — model updated');
+                await fetchCategories();
+                updateTrainPanel();
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (err.detail || 'unknown'));
+            }
+        }
+
+        async function trainModel() {
+            const examples = [];
+            document.querySelectorAll('#label-list select').forEach(sel => {
+                if (sel.value) {
+                    const text = sel.closest('.train-row').querySelector('div').textContent;
+                    examples.push({ text, label: sel.value });
+                }
+            });
+            document.querySelectorAll('#add-examples .train-row').forEach(row => {
+                const t = row.querySelector('#ex-text').value.trim();
+                const l = row.querySelector('#ex-label').value;
+                if (t && l) examples.push({ text: t, label: l });
+            });
+
+            if (examples.length < 2) {
+                showToast('Label at least 2 notes to train');
+                return;
+            }
+
+            const res = await fetch(`${API}/api/train`, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    texts: JSON.stringify(examples.map(e => e.text)),
+                    labels: JSON.stringify(examples.map(e => e.label)),
+                }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Trained: ${data.note_count} examples, categories: ${data.categories.join(', ')}`);
+                trainedBadge.textContent = '✅ Model trained';
+                trainedBadge.className = 'trained-badge';
+                await fetchCategories();
+                updateTrainPanel();
+            } else {
+                showToast('Training failed');
+            }
+        }
+
+        async function clearLabels() {
+            if (!confirm('Clear all labels? Notes are not deleted.')) return;
+            noteLabels = {};
+            updateTrainPanel();
+            showToast('Labels cleared');
+        }
+
+        // ── Microphone ───────────────────────────────────────────────────────────
+
+        recordBtn.addEventListener('click', async () => {
+            if (recording) {
+                mediaRecorder.stop();
+                recording = false;
+                recordBtn.classList.remove('recording');
+                recordBtn.textContent = '🎤';
+                return;
+            }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const file = new File([blob], 'voice-note.webm', { type: 'audio/webm' });
+                    audioFile.files = file ? [file] : [];
+                    audioRow.classList.add('show');
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start();
+                recording = true;
+                recordStartTime = Date.now();
+                recordBtn.classList.add('recording');
+                recordBtn.textContent = '⏹';
+                requestAnimationFrame(updateTimer);
+            } catch (err) {
+                showToast('Mic access denied');
+            }
+        });
+
+        function updateTimer() {
+            if (!recording) return;
+            const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+            recordTimer.textContent = String(Math.floor(elapsed/60)).padStart(2,'0') + ':' + String(elapsed%60).padStart(2,'0');
+            requestAnimationFrame(updateTimer);
+        }
+
+        saveBtn.addEventListener('click', saveNote);
+        clearBtn.addEventListener('click', () => {
+            noteInput.value = '';
+            audioFile.value = '';
+            audioRow.classList.remove('show');
+        });
+        backupBtn.addEventListener('click', downloadBackup);
+        trainBtn.addEventListener('click', trainModel);
+        clearLabelsBtn.addEventListener('click', clearLabels);
+
+        loadNotes();
+        fetchCategories().then(() => updateTrainPanel());
+    </script>
+</body>
+</html>

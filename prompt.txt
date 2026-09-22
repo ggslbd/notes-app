@@ -1,0 +1,134 @@
+# Notes App — Project Prompt for AI Continuation
+
+## Overview
+A note-taking web app where users can write or record voice notes from an Android device. Notes are classified into categories by a trainable ML model, and notes containing reminder keywords are flagged with extracted dates/times. Backend is FastAPI + SQLite; frontend is a mobile-friendly single-page HTML/JS app.
+
+## Tech Stack
+- **Backend:** Python 3.11, FastAPI, SQLite (SQLAlchemy), python-multipart
+- **ML:** scikit-learn (TF-IDF vectorizer + LogisticRegression classifier), joblib for persistence
+- **Reminders:** custom regex-based keyword detection + date/time extraction (no external NLP library)
+- **Frontend:** Vanilla HTML/CSS/JS, served by FastAPI's StaticFiles
+- **Voice:** Browser MediaRecorder API → audio file uploaded to backend (stored in uploads/)
+- **Server:** uvicorn, default port 8084
+
+## Project Structure
+```
+notes-app/
+├── main.py              # FastAPI app, all API endpoints, SQLAlchemy models
+├── classifier.py        # NoteClassifier class: train(), predict(), save/load model
+├── reminder.py          # extract_reminder_info(): keyword scan + date/time regex
+├── requirements.txt     # Python dependencies
+├── run.bat              # Windows one-click starter (venv + pip install + uvicorn)
+├── README.md            # User-facing docs
+├── .gitignore           # Excludes .venv/, *.db, uploads/, models/, __pycache__/
+├── static/
+│   └── index.html       # Mobile UI: note input, mic record, categorize, train panel, reminders, backup
+├── uploads/             # Audio files (gitignored)
+├── models/              # Trained model files (gitignored)
+│   ├── note_classifier.pkl      # scikit-learn Pipeline (TF-IDF + LogisticRegression)
+│   └── label_encoder.json       # Category list (JSON)
+└── .venv/               # Python virtualenv (gitignored)
+```
+
+## Current Categories (as of last commit)
+`["officenote", "repair", "misl", "sebabd", "pacific", "toner"]`
+
+These replaced the original defaults `["personal", "work", "health", "shopping", "idea", "other"]`. The categories list lives in `classifier.py` as `DEFAULT_CATEGORIES` and is extended dynamically when new labels are used in training. The trained model file (`models/note_classifier.pkl`) still contains the old categories until retrained — retrain in the UI or via API to sync.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Serves `static/index.html` |
+| POST | `/api/notes` | Create note. Form fields: `content` (required), `audio` (optional file). Auto-classifies and scans for reminders. Returns note with category, is_reminder, reminder_date, reminder_time. |
+| GET | `/api/notes` | List all notes, newest first. Includes category, reminder fields. |
+| DELETE | `/api/notes/{id}` | Delete note. Removes associated audio file if present. |
+| GET | `/api/backup` | Full JSON dump: `{backup_date, notes: [...]}`. Use for export/restore. |
+| POST | `/api/train` | Train classifier. Form: `texts` (JSON array of strings), `labels` (JSON array of category names, same length). Min 2 examples. Returns `{ok, categories, note_count}`. |
+| POST | `/api/classify` | Classify text without saving. Form: `content`. Returns `{category, confidence, trained}`. |
+| GET | `/api/categories` | Returns `{categories: [...], trained: bool}`. |
+| GET | `/api/reminders` | Notes flagged as reminders, sorted by `reminder_date` ascending. |
+| GET | `/api/health` | `{status: "ok"}` |
+
+## How Classification Works
+1. `classifier.py` defines `NoteClassifier` class with a scikit-learn `Pipeline` (TfidfVectorizer ngram_range=(1,2) max_features=5000 + LogisticRegression max_iter=1000 class_weight="balanced").
+2. Model persisted to `models/note_classifier.pkl` (joblib) and category list to `models/label_encoder.json`.
+3. On app start, model is loaded if files exist; otherwise `pipeline=None` and all notes get category `"other"`.
+4. `train(texts, labels)` rebuilds the pipeline from scratch with all provided examples and saves.
+5. `predict(text)` returns `{category, confidence, trained}`. If untrained, returns `{"category": "other", "confidence": 0.0, "trained": false}`.
+6. In `main.py`, every new note is classified on creation. The category is stored on the Note model.
+
+## How Reminders Work
+1. `reminder.py` defines `extract_reminder_info(text)` — scans for keywords: `remind, reminder, todo, to do, don't forget, dont forget, remember to, need to, must, follow up, follow-up, task, action`.
+2. If a keyword is found, returns `is_reminder=True`. Then scans for dates using regex patterns: explicit dates (YYYY-MM-DD, MM/DD/YYYY, DD.MM.YYYY), "DD Month" / "Month DD", relative ("tomorrow", "today", "day after tomorrow", "next week"), next weekday ("next Monday" etc.), "in N days/weeks/months", and times ("at 3pm", "at 15:00").
+3. Returns `{is_reminder, reminder_date (ISO), time (HH:MM:SS), matched_keyword}`.
+4. In `main.py`, the reminder fields are stored on the Note model and exposed via `/api/reminders`.
+
+## Database Schema
+SQLite, `notes.db` (or `notes_new.db` — see note below). Table `notes`:
+- `id` TEXT PK (UUID), `content` TEXT, `audio_path` TEXT nullable
+- `category` TEXT nullable, `is_reminder` BOOLEAN, `reminder_date` TEXT nullable, `reminder_time` TEXT nullable
+- `created_at` DATETIME, `updated_at` DATETIME
+
+Note: The codebase currently uses `notes_new.db` (DATABASE_URL = "sqlite:///./notes_new.db") because the old `notes.db` had a stale schema lock. When the app starts, `Base.metadata.create_all()` ensures all columns exist. If you see "no such column" errors, delete the DB file and restart — a fresh DB is created with the correct schema.
+
+## Frontend Features
+- Text textarea + Save/Clear buttons
+- 🎤 mic button: records audio via MediaRecorder, attaches as file to the note form
+- Category badge shown on each note card
+- 🔔 reminder badge + date shown on reminder notes
+- "✏️ Label & Train" panel: dropdown per note to assign category, "Train Model" button, "Clear Labels" button, "Add example" row for direct training
+- "🔔 Reminders" section: lists notes flagged as reminders with date/time
+- "Download Backup" button: pulls `/api/backup` and saves as JSON file
+- Toast notifications for save/delete/train/backup actions
+
+## Running the App
+**Windows (recommended):**
+```
+cd notes-app
+.\run.bat
+```
+`run.bat` creates the venv if missing, installs deps, starts uvicorn on `0.0.0.0:8084`.
+
+**Manual:**
+```
+cd notes-app
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8084
+```
+
+Open `http://localhost:8084` in a browser. From Android on the same Wi-Fi, use `http://<PC-LAN-IP>:8084` (find PC IP with `ipconfig`).
+
+## Dependencies (requirements.txt)
+```
+fastapi==0.115.0
+uvicorn==0.30.6
+sqlalchemy==2.0.35
+python-multipart==0.0.9
+scikit-learn==1.6.1
+joblib==1.4.2
+numpy==1.26.4
+```
+
+## Git
+- Remote: `https://github.com/ggslbd/notes-app.git`
+- Branch: `master`
+- Auth: Git Credential Manager (GCM) — browser-based OAuth, no PAT needed
+
+## Known Limitations / TODO
+- Server-side voice transcription is NOT implemented. Audio files are stored but not transcribed. To add: integrate Whisper (openai-whisper) or a speech-to-text API in `main.py` after audio upload.
+- Classifier accuracy depends on how many of your own notes you label and train on. The generic examples give weak results.
+- Date extraction is regex-based and may miss unusual formats. Could be improved with dateparser or spaCy.
+- No authentication/authorization on the API.
+- No reminder notification system — reminders are stored and listed but don't fire alerts. To add: a background scheduler (APScheduler) that checks `reminder_date` and sends notifications.
+- The `models/` and `uploads/` directories and `*.db` files are gitignored. The trained model and audio files are not in the repo.
+
+## Key Files to Understand First
+1. `main.py` — the whole API and data model
+2. `classifier.py` — the ML pipeline
+3. `reminder.py` — reminder detection logic
+4. `static/index.html` — the entire frontend (single file)
+5. `requirements.txt` — deps
+6. `run.bat` — how to start
